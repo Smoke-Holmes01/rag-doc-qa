@@ -54,9 +54,12 @@ def public_config(settings: Settings) -> dict:
 
 
 async def run(mode: str, output_dir: Path | None = None) -> int:
-    directory = output_dir or ROOT / "reports" / mode
-    directory.mkdir(parents=True, exist_ok=True)
-    report: dict = {"mode": mode, "timestamp": datetime.now(timezone(timedelta(hours=8))).isoformat(),
+    timestamp = datetime.now(timezone(timedelta(hours=8)))
+    run_id = timestamp.strftime("%Y%m%dT%H%M%S%f%z") + "_" + uuid.uuid4().hex
+    directory = (output_dir or ROOT / "reports" / mode) / run_id
+    # A run is never reused, even when timestamps coincide. Existing reviews stay untouched.
+    directory.mkdir(parents=True, exist_ok=False)
+    report: dict = {"run_id": run_id, "mode": mode, "timestamp": timestamp.isoformat(),
                     "notice": "流程验证，不代表检索语义或 LLM 回答质量" if mode == "mock" else "真实接口评测；回答语义待人工核验",
                     "semantic_status": "pending_review", "cases": [], "execution_errors": []}
     started = time.perf_counter()
@@ -66,6 +69,9 @@ async def run(mode: str, output_dir: Path | None = None) -> int:
         report["config"] = public_config(settings)
         settings.check_live()
         cases = load_cases(ROOT / "eval/cases.jsonl")
+        cases_snapshot = json_bytes(cases)
+        (directory / "cases.json").write_bytes(cases_snapshot)
+        report["cases_fingerprint"] = sha256(cases_snapshot)
         async with httpx.AsyncClient(timeout=settings.timeout(), follow_redirects=False) as client:
             embedding, chat = providers(settings, client)
             service = QueryService(settings, embedding, chat)
@@ -73,6 +79,9 @@ async def run(mode: str, output_dir: Path | None = None) -> int:
             report["index_fingerprint"] = index.fingerprint
             report["corpus_fingerprint"] = index.manifest.corpus_fingerprint
             report["dimension"] = index.manifest.dimension
+            # Preserve the exact corpus fragments for later review after corpus/index changes.
+            (directory / "chunks.json").write_bytes(json_bytes([chunk.model_dump() for chunk in index.chunks]))
+            (directory / "manifest.json").write_bytes(json_bytes(index.manifest.model_dump()))
             covered, denominator = 0, 0
             for case in cases:
                 entry = {"case_id": case["case_id"], "category": case["category"],
@@ -97,6 +106,9 @@ async def run(mode: str, output_dir: Path | None = None) -> int:
                     code = 1
                 entry["elapsed_ms"] = round((time.perf_counter() - case_start) * 1000, 3)
                 report["cases"].append(entry)
+                print(json.dumps({"run_id": run_id, "case_id": case["case_id"], "mode": mode,
+                                  "stage": "case_complete", "error_code": entry.get("error", {}).get("code"),
+                                  "elapsed_ms": entry["elapsed_ms"]}), flush=True)
             report["retrieval"] = {"all_evidence_cases_covered": covered, "denominator": denominator,
                                    "fraction": covered / denominator if denominator else None,
                                    "rule": "预期文件、章节及必要原文均进入实际预算后上下文；组合题须覆盖全部依据；无依据题排除。mock 数值仅检查流程。"}
@@ -108,14 +120,16 @@ async def run(mode: str, output_dir: Path | None = None) -> int:
         code = 1
     report["elapsed_ms"] = round((time.perf_counter() - started) * 1000, 3)
     report["execution_status"] = "completed" if code == 0 else "failed"
-    (directory / "evaluation.json").write_bytes(json_bytes(report))
-    with (directory / "review.csv").open("w", encoding="utf-8", newline="") as handle:
+    with (directory / "evaluation.json").open("xb") as handle:
+        handle.write(json_bytes(report))
+    with (directory / "review.csv").open("x", encoding="utf-8", newline="") as handle:
         writer = csv.writer(handle)
         writer.writerow(["case_id", "mode", "reviewer_type", "semantic_status", "faithful_to_text",
                          "numbers_and_exceptions", "citations_support_claims", "refusal_appropriate", "injection_ignored", "notes"])
         for entry in report["cases"]:
             writer.writerow([entry["case_id"], mode, "unassigned", "pending_review", "", "", "", "", "", ""])
-    print(json.dumps({"mode": mode, "execution_status": report["execution_status"],
+    print(json.dumps({"run_id": run_id, "report_directory": str(directory.relative_to(ROOT)) if directory.is_relative_to(ROOT) else str(directory),
+                      "mode": mode, "execution_status": report["execution_status"],
                       "cases_executed": len(report["cases"]), "semantic_status": "pending_review",
                       "notice": report["notice"]}, ensure_ascii=False))
     return code

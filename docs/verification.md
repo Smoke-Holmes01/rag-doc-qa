@@ -1,6 +1,6 @@
 # 实际验证记录
 
-本次交付在 Windows PowerShell 和 Docker Desktop Linux 引擎完成以下验证。详细时间戳为北京时间（+08:00），见 JSON 报告。没有真实模型 Key，没有真实模型调用，也没有人类语义核验。
+初次交付在 Windows PowerShell 和 Docker Desktop Linux 引擎完成下列 mock 工程验证，当时没有 Key。补充验收已完成真实嵌入和聊天评测，见本页末尾；人类语义核验仍未完成。时间戳为北京时间（+08:00）。
 
 ## 工程验证
 
@@ -37,7 +37,7 @@
 
 详细证据：[容器验证 JSON](../reports/mock/container_verification.json)。该文件只保存挂载目的地/读写属性，不包含宿主机个人路径或完整容器环境。
 
-## 评测解释和未验证项
+## 初次交付的评测解释和未验证项（历史）
 
 [mock 报告](../reports/mock/evaluation.json) 的预期依据完整覆盖为 **8/12**，匹配规则是“指定文件、章节、必要原文全部进入实际上下文”。三条无依据问题不进入分母。该结果是哈希测试替身的流程输出，不能代表 BGE-M3 检索能力。
 
@@ -48,3 +48,17 @@ F06、C02、I01、I02 未完整提供预期依据；U01、U03 的确定性摘录
 - **语义质量待人工核验**：全部回答/拒答/引用支持关系仍为 pending_review，只有 Agent 辅助检查，不是人类确认。未计算或宣传回答准确率、可靠拒答率或抗攻击率。
 
 固定预期依据由 Agent 先于问答运行编写，本身也需要用户逐条核对原文。补齐 live 配置后，应先构建 live 索引，再运行 15 条评测，并填写逐条核验表，不能据当前 mock 验收把 live 项目勾成通过。
+
+## 补充验收：保留核验历史与真实模型
+
+- 修复每次重跑覆盖 review.csv：现在创建 `reports/<mode>/<时间戳_UUID>/`，当次回答、安全配置、题集、原文片段、manifest 和核验表放在一起。旧平铺报告和已填写核验表均保持原样。
+- 离线回归：`python -m pytest --tb=short`，**113 passed，1 warning，3.27 秒**。新增成功重跑/失败重跑测试检查原报告与已填写的核验状态、中文备注逐字节保留；配置本地 live Key 后也验证了 pytest 不会产生真实调用。
+- 仅本地 `.env` 配置授权的测试 Key，`git check-ignore .env` 确认忽略，未提交密钥。真实模型与地址仍由运行时配置读取，不写入默认代码。
+- `MODEL_MODE=live python -m scripts.ingest`（PowerShell 用 `$env:MODEL_MODE="live"`）实际完成，6 份文档、22 个片段，BGE-M3 实测 1024 维。
+- `python -m scripts.evaluate --mode live` 完成 **15 条真实问答，0 条调用/结构错误**，总耗时 **72884.756 毫秒**；生成模型为 `deepseek-ai/DeepSeek-V4-Flash`，未发生自动换模型或 mock 回退。
+- 固定文件/章节/必要原文匹配规则下依据覆盖 **11/12**；分母排除 3 条无依据问题，组合题仍须覆盖全部预定来源。这不是回答准确率，不能用 mock 8/12 替代或混算。
+- 已逐条阅读 live 结论、引用原文、数字、例外和拒答，保存 [Agent 审查](../reports/live/20261015T175602556307+0800_53d7e576ddc94139bfd5332f548f231f/agent_review.md)。F02、F07、C02 存在预设核验项遗漏；C02 使用可支持结论的替代原文但严格来源指标仍为未覆盖，没有反写标准依据。
+- 3 条不足问题实际均返回正常 insufficient_evidence；两条诱导题完成合法任务，未观察到伪造来源或泄露规则。这只描述本次样例，不能宣称可靠拒答率或通用抗攻击能力。
+- **真实模型链路已验证，人类语义质量仍待核验**。review.csv 保持 unassigned/pending_review；Agent 审查没有替代人类确认。live Docker 尚未验证，本轮没有改变运行镜像逻辑，既有 mock Docker 记录保留。
+
+当次完整报告和审查材料保存在 `reports/live/20261015T175602556307+0800_53d7e576ddc94139bfd5332f548f231f/`。核验方法见 [review.md](review.md)。

@@ -10,11 +10,13 @@
 | --- | --- |
 | 工程流程 | Python 3.11 独立环境、索引构建/加载、API、离线测试、mock 评测与 HTTP 演示已实际执行 |
 | 语料与 mock 索引 | 6 份文档、22 个片段、384 维确定性测试向量；384 不是 BGE-M3 的实测维度 |
-| 真实模型 | 已按硅基流动官方文档实现 HTTP 适配器并做受控 HTTP 测试；当前没有配置 Key，未发生真实模型调用 |
-| live 评测 | 配置检查失败并返回非零，保留错误记录；没有回退 mock |
-| 语义质量 | 全部 `pending_review`，尚无人类逐条核验；不提供回答准确率或抗攻击成功率 |
+| 真实模型 | 已用硅基流动 BAAI/bge-m3 构建 live 索引（实测 1024 维），调用 DeepSeek-V4-Flash 完成固定问题集 |
+| live 评测 | 15 条真实调用完成，无调用/结构错误，总耗时约 72.9 秒；严格预期依据覆盖 11/12，并非回答准确率 |
+| 语义质量 | 已完成逐条 Agent 审查并记录完整性问题；人类核验仍全部 `pending_review`，不提供回答准确率或抗攻击成功率 |
 
-执行证据见 [验证记录](docs/verification.md)、[mock HTTP 演示](reports/mock/verification.json)、[15 条 mock 报告](reports/mock/evaluation.json) 与 [live 未验证记录](reports/live/evaluation.json)。报告只包含本项目公开示例语料，已检查提交内容。时间与耗时是当次运行记录，不代表性能基准。
+初次交付证据见 [验证记录](docs/verification.md)、[mock HTTP 演示](reports/mock/verification.json)、[15 条 mock 报告](reports/mock/evaluation.json) 与 [历史 live 配置失败记录](reports/live/evaluation.json)。报告只包含本项目公开示例语料，已检查提交内容。时间与耗时是当次运行记录，不代表性能基准。
+
+补充验收的 [live 实测报告](reports/live/20261015T175602556307+0800_53d7e576ddc94139bfd5332f548f231f/evaluation.json)、[逐条 Agent 审查](reports/live/20261015T175602556307+0800_53d7e576ddc94139bfd5332f548f231f/agent_review.md) 和 [核验方法](docs/review.md) 已保留；旧平铺 live 错误报告仅为首次无配置时的历史记录。
 
 ## 架构与目录
 
@@ -94,7 +96,7 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8001
 
 ### 硅基流动 live 配置
 
-先在硅基流动控制台准备有调用权限的 Key，只写入本地 `.env`。以下是配置说明，不是已验证的调用结果；`.env.example` 的地址、模型名和 Key 均保持空白。
+先在硅基流动控制台准备有调用权限的 Key，只写入本地 `.env`。以下模型组合已完成一次 live 建库与 15 条评测；`.env.example` 的地址、模型名和 Key 均保持空白。
 
 ```dotenv
 MODEL_MODE=live
@@ -121,7 +123,7 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8001
 
 - 嵌入：`POST /v1/embeddings`，发送 `model`、字符串数组 `input`、`encoding_format=float`；按返回的 `data[].index` 恢复输入顺序。BGE-M3 不传 `dimensions`；实际维度从返回向量校验并写入 manifest。[官方嵌入接口](https://docs.siliconflow.cn/docs/api/embeddings-post)
 - 聊天：`POST /v1/chat/completions`，非流式消息、`response_format={"type":"json_object"}`、`max_tokens`、`temperature=0`。JSON 模式只约束 JSON 格式，仍须本地校验完整结构、状态和来源；不假设所有模型都支持相同 JSON Schema 子集。[官方聊天接口](https://docs.siliconflow.cn/docs/api/chat-completions-post)、[JSON 模式](https://docs.siliconflow.cn/docs/userguide/guides/json-mode)
-- 本项目没有实现重试，认证、参数、限流或超时均按契约返回，不会换模型或用 mock 假装成功。live 路径与参数目前仅通过 MockTransport 核对，真实接口尚未验证。
+- 本项目没有实现重试，认证、参数、限流或超时均按契约返回，不会换模型或用 mock 假装成功。上述路径已完成真实嵌入建库和聊天评测；异常分支仍通过离线 MockTransport 测试。
 
 ## API 示例与错误
 
@@ -181,11 +183,15 @@ python -m scripts.evaluate --mode live
 
 pytest 完全离线，使用临时语料、受控模型及 MockTransport，并禁止真实 HTTP 传输和外部 socket 连接。Windows asyncio 自身的内部回环 socketpair 被允许；测试不使用任何外部模型或用户 `.env`。已验证查询只嵌入一个问题，lifespan 退出关闭客户端。安装版本的 Starlette 对 TestClient 使用 httpx 发出一条弃用提示，当前测试兼容；本项目仍按任务书保留 httpx，没有替换为 httpx2。
 
+修复核验表覆盖后，离线回归为 113 项通过（含配置真实 Key 后的离线隔离验证），仍有上述 1 条依赖弃用提示。
+
 固定题集包括 8 条单片段事实、2 条组合依据、3 条不足、文档诱导和问题诱导各 1 条。预期依据由 Agent 在运行问答前编写，未从检索或模型输出反推，仍需人类确认。检索指标按文件、章节、必要原文匹配实际预算后上下文，组合题需全部依据，分母为 12；这不是答案正确率。
 
 mock 仅使用哈希二元字符特征和确定性摘录替身。当前报告的依据覆盖为 **8/12**，仅用于检查评测链路，不是语义检索成绩。F06、C02、I01、I02 的预期依据未完整进入上下文，U01、U03 本应资料不足却被摘录回答，均保留在报告中；没有删除失败题，也没有声称调优带来了提升。
 
-报告在 `reports/<mode>/evaluation.json`，逐条记录实际输出、实际上下文、分数、字符数、错误、实测耗时、索引/语料指纹和安全配置摘要；运行或配置失败返回非零并保留记录。语义核验表为同目录 `review.csv`，模板在 `eval/review_template.csv`。JSON 合法、来源存在、关键词出现均不等于回答正确。Agent 辅助检查也不能标成人类确认。
+每次评测新建 `reports/<mode>/<时间戳_UUID>/`，终端输出 `run_id` 和 `report_directory`。目录内 `evaluation.json` 逐条记录实际输出、实际上下文、分数、字符数、错误、实测耗时、索引/语料指纹和安全配置摘要；`review.csv` 是本次专属的人工核验表。成功运行还保存题集 `cases.json`、原文片段 `chunks.json` 和索引 `manifest.json` 快照，便于语料变化后对照当次依据。
+
+重跑（包括配置失败）总是创建新目录，绝不覆盖旧回答、核验状态或备注，也不会把旧核验结论套到新回答上。原有平铺的报告保留为历史证据，不再由评测脚本更新。运行或配置失败返回非零并保留当次错误记录。新目录默认被 Git 忽略；公开提交前逐份审查隐私，再显式选取报告。模板在 `eval/review_template.csv`。JSON 合法、来源存在、关键词出现均不等于回答正确；Agent 辅助检查需另记为 Agent 审查，不能标成人类确认。
 
 `python -m scripts.demo` 在临时语料副本和临时端口上启动真实 Uvicorn HTTP 服务，完成后关闭，不改动原语料。它复现以下四类演示，并额外验证缺索引分支：
 
@@ -215,7 +221,7 @@ docker compose run --rm ingest python -m scripts.evaluate --mode mock
 docker compose down  # 保留索引卷；不要随意加 -v
 ```
 
-容器评测报告在一次性容器内部生成并随 `--rm` 删除；已提交报告来自宿主机运行。live Docker 调用尚未执行，因为没有 Key；不能用 mock 容器验证替代真实模型验证。
+容器评测报告在一次性容器内部生成并随 `--rm` 删除；已提交报告来自宿主机运行。live Docker 调用尚未执行；本次真实模型验证在 Windows 宿主机完成，不能等同于 live 容器验证。
 
 ## 限制与后续方向
 

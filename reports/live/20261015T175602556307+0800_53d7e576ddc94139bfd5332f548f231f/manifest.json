@@ -1,0 +1,49 @@
+{
+  "artifacts": {
+    "chunks.json": "995af78a080e3ea024d647bd327e6b2b9da02c0fab3ece49f2dfe887dff88773",
+    "vectors.npz": "1f75ab2c20a8edfe01cfe8abf8850be61f271ccf82b7fec14e2703580fbd9f50"
+  },
+  "chunk_count": 22,
+  "chunking": {
+    "max_chars": 800,
+    "overlap_chars": 100,
+    "strategy": "headings-paragraphs-v1"
+  },
+  "corpus_fingerprint": "2ed5715f88576d716e15456a6a44edfa7811075126d2d4c1bc6878fed98e89d0",
+  "dimension": 1024,
+  "documents": [
+    {
+      "filename": "01_overview.md",
+      "sha256": "9303036b115af302b0550a518138b984dd33468948d2778ef2fbfec667a5c759"
+    },
+    {
+      "filename": "02_api.md",
+      "sha256": "073ac33897c84cea31cdbd84182dea2dab9dee5cbbc9b6ffc7576447852b6e51"
+    },
+    {
+      "filename": "03_configuration.md",
+      "sha256": "db73e8d04ceea2d926c1e82fbbe48a2dc40b113aa2a2c2e8b2a0807426f02f7c"
+    },
+    {
+      "filename": "04_index.md",
+      "sha256": "15ea4d2b5e7917640237dc7149e8a5c5da22fea4c63aebc688a64107d0f9ea4c"
+    },
+    {
+      "filename": "05_security.md",
+      "sha256": "4e7a3232a8ae750411a267ac0731b14702a44e5ac4bb51c401cc0509cae7280d"
+    },
+    {
+      "filename": "06_deployment.txt",
+      "sha256": "17155c2fb98d0ffa813fd2c78aeb68eb9efd493a654a771a12498d77eafe59c2"
+    }
+  ],
+  "dtype": "float32",
+  "embedding": {
+    "adapter": "siliconflow",
+    "model": "BAAI/bge-m3",
+    "service_id": "dcfb966d818ddf8f4d10f7397ce546e86d3fcb8afe26371506405f6978c6f661"
+  },
+  "format_version": 1,
+  "mode": "live",
+  "normalization": "l2"
+}

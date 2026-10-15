@@ -148,16 +148,53 @@ def test_eval_cases_and_mock_reports(settings, built, monkeypatch, tmp_path):
     monkeypatch.setenv("INDEX_DIR", str(settings.index_dir))
     directory = tmp_path / "report"
     assert asyncio.run(run("mock", directory)) == 0
-    result = json.loads((directory / "evaluation.json").read_bytes())
+    run_directory, = directory.iterdir()
+    result = json.loads((run_directory / "evaluation.json").read_bytes())
     assert result["mode"] == "mock" and len(result["cases"]) == 15
     assert result["retrieval"]["denominator"] == 12
     assert all(case["semantic_status"] == "pending_review" for case in result["cases"])
-    assert (directory / "review.csv").exists()
+    assert (run_directory / "review.csv").exists()
+    assert result["run_id"] == run_directory.name
+    assert (run_directory / "cases.json").exists()
+    assert (run_directory / "chunks.json").exists()
+    assert (run_directory / "manifest.json").exists()
     assert "准确率" not in json.dumps(result.get("retrieval"), ensure_ascii=False)
 
 
 def test_eval_live_missing_no_fallback(tmp_path):
     assert asyncio.run(run("live", tmp_path)) == 1
-    report = json.loads((tmp_path / "evaluation.json").read_bytes())
+    run_directory, = tmp_path.iterdir()
+    report = json.loads((run_directory / "evaluation.json").read_bytes())
     assert report["mode"] == "live" and report["cases"] == []
     assert report["execution_errors"][0]["code"] == "CONFIG_INVALID"
+
+
+def test_rerun_preserves_human_review_and_legacy_files(settings, built, monkeypatch, tmp_path):
+    monkeypatch.setenv("DOCS_DIR", str(settings.docs_dir))
+    monkeypatch.setenv("INDEX_DIR", str(settings.index_dir))
+    directory = tmp_path / "reports"
+    directory.mkdir()
+    legacy = directory / "review.csv"
+    legacy.write_bytes(b"legacy human review\r\n")
+    assert asyncio.run(run("mock", directory)) == 0
+    first, = [path for path in directory.iterdir() if path.is_dir()]
+    review = first / "review.csv"
+    text = review.read_text(encoding="utf-8").replace("unassigned,pending_review", "human,reviewed", 1)
+    review.write_text(text + "human note: 数字和例外已核对\n", encoding="utf-8")
+    original = {path.name: path.read_bytes() for path in first.iterdir()}
+    assert asyncio.run(run("mock", directory)) == 0
+    assert len([path for path in directory.iterdir() if path.is_dir()]) == 2
+    assert {path.name: path.read_bytes() for path in first.iterdir()} == original
+    assert legacy.read_bytes() == b"legacy human review\r\n"
+
+
+def test_failed_rerun_preserves_existing_reports(tmp_path):
+    assert asyncio.run(run("live", tmp_path)) == 1
+    first, = tmp_path.iterdir()
+    review = first / "review.csv"
+    review.write_bytes(b"preserved notes")
+    original = (first / "evaluation.json").read_bytes()
+    assert asyncio.run(run("live", tmp_path)) == 1
+    assert len(list(tmp_path.iterdir())) == 2
+    assert review.read_bytes() == b"preserved notes"
+    assert (first / "evaluation.json").read_bytes() == original
