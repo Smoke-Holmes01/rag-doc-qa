@@ -1,0 +1,14 @@
+.git
+.env
+.env.*
+!.env.example
+.venv
+.runtime
+.uv-cache
+__pycache__
+.pytest_cache
+pytest-cache-files-*
+storage
+reports
+tests
+AGENTS.md

@@ -1,0 +1,32 @@
+x-common: &common
+  image: rag-doc-qa:local
+  build: .
+  env_file:
+    - .env
+  environment:
+    DOCS_DIR: /app/data/docs
+    INDEX_DIR: /app/storage/indexes
+  user: "10001:10001"
+
+services:
+  api:
+    <<: *common
+    ports:
+      - "127.0.0.1:8001:8001"
+    volumes:
+      - ./data/docs:/app/data/docs:ro
+      - indexes:/app/storage/indexes:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/healthz', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+  ingest:
+    <<: *common
+    command: ["python", "-m", "scripts.ingest"]
+    volumes:
+      - ./data/docs:/app/data/docs:ro
+      - indexes:/app/storage/indexes
+
+volumes:
+  indexes:

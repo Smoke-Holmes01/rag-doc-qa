@@ -1,0 +1,122 @@
+{
+  "mode": "mock",
+  "timestamp": "2026-10-15T17:37:50.714624+08:00",
+  "engine_version": "29.8.1",
+  "python": "Python 3.11.17",
+  "execution_status": "completed",
+  "nonroot_uid": 10001,
+  "mounts": [
+    {
+      "destination": "/app/data/docs",
+      "type": "bind",
+      "writable": false
+    },
+    {
+      "destination": "/app/storage/indexes",
+      "type": "volume",
+      "writable": false
+    }
+  ],
+  "ports": {
+    "8001/tcp": [
+      {
+        "HostIp": "127.0.0.1",
+        "HostPort": "8001"
+      }
+    ]
+  },
+  "readonly_probe": {
+    "uid": 10001,
+    "readonly_write_errno": 30,
+    "env_file_present": false
+  },
+  "ingest_write_probe": {
+    "uid": 10001,
+    "write_probe": "passed"
+  },
+  "health": {
+    "status": "ok",
+    "mode": "mock",
+    "index_ready": true,
+    "reason": null
+  },
+  "http_queries": [
+    {
+      "question": "星桥配置修改后什么情况下需要重建索引，单改聊天模型是否需要？",
+      "http_status": 200,
+      "output": {
+        "request_id": "ea4abe5363da4cca90bd593da737526b",
+        "mode": "mock",
+        "status": "answered",
+        "answer": "[mock 原文摘录，非语义回答] 文档新增、删除或修改，嵌入适配器、服务地址、嵌入模型或切分参数改变，都必须重新构建索引。索引文件损坏同样要求重建。\n\n只修改聊天模型不需要重嵌入，因为聊天模型不决定文档向量空间。同名远端嵌入模型悄悄更新时，本地身份检查未必能够检测到变化。",
+        "claims": [
+          {
+            "text": "[mock 原文摘录，非语义回答] 文档新增、删除或修改，嵌入适配器、服务地址、嵌入模型或切分参数改变，都必须重新构建索引。索引文件损坏同样要求重建。\n\n只修改聊天模型不需要重嵌入，因为聊天模型不决定文档向量空间。同名远端嵌入模型悄悄更新时，本地身份检查未必能够检测到变化。",
+            "source_ids": [
+              "c_0fa031dc1f7eacc16773f38d"
+            ]
+          }
+        ],
+        "citations": [
+          {
+            "chunk_id": "c_0fa031dc1f7eacc16773f38d",
+            "filename": "04_index.md",
+            "title": "星桥文档服务：索引管理",
+            "heading_path": [
+              "星桥文档服务：索引管理",
+              "重建条件"
+            ],
+            "text": "文档新增、删除或修改，嵌入适配器、服务地址、嵌入模型或切分参数改变，都必须重新构建索引。索引文件损坏同样要求重建。\n\n只修改聊天模型不需要重嵌入，因为聊天模型不决定文档向量空间。同名远端嵌入模型悄悄更新时，本地身份检查未必能够检测到变化。",
+            "score": 0.2832352817058563
+          }
+        ]
+      }
+    },
+    {
+      "question": "星桥企业版年度采购价格和退款比例分别是多少？",
+      "http_status": 200,
+      "output": {
+        "request_id": "8aa0689042e2452aab55fbb3f3b3286e",
+        "mode": "mock",
+        "status": "insufficient_evidence",
+        "answer": "[mock] 未找到足够字面匹配的资料；这不是模型语义判断。",
+        "claims": [],
+        "citations": []
+      }
+    }
+  ],
+  "mock_evaluation": {
+    "mode": "mock",
+    "execution_status": "completed",
+    "cases_executed": 15,
+    "semantic_status": "pending_review",
+    "notice": "流程验证，不代表检索语义或 LLM 回答质量"
+  },
+  "missing_index_startup": {
+    "verified_before_first_ingest": true,
+    "health_index_ready": false,
+    "query_http_status": 503,
+    "query_code": "INDEX_NOT_READY"
+  },
+  "live_verified": false,
+  "semantic_status": "pending_review",
+  "final_source_recheck": {
+    "image_rebuilt": true,
+    "ingest_completed": true,
+    "health": {
+      "status": "ok",
+      "mode": "mock",
+      "index_ready": true,
+      "reason": null
+    },
+    "query_http_status": 200,
+    "query_status": "answered",
+    "mock_evaluation": {
+      "mode": "mock",
+      "execution_status": "completed",
+      "cases_executed": 15,
+      "semantic_status": "pending_review",
+      "notice": "流程验证，不代表检索语义或 LLM 回答质量"
+    }
+  }
+}
